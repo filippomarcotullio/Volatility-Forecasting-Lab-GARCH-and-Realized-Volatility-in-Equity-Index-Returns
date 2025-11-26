@@ -112,7 +112,3 @@ The project computes:
 - MSE and MAE between realized and GARCH volatilities.
 
 These metrics provide a quantitative comparison of predictive accuracy and portfolio performance.
-
----
-
-## How to Run
