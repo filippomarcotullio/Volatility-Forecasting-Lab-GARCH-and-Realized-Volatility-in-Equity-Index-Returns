@@ -1,99 +1,143 @@
 # Volatility Forecasting Lab – GARCH(1,1) on S&P 500
 
-This project investigates the dynamics of equity index volatility using daily S&P 500 returns (2010–2024).  
-It combines realized volatility measurement, GARCH(1,1) modelling, and a simple volatility-targeting strategy to assess whether conditional volatility forecasts can improve portfolio risk management.
+This project studies the behaviour of equity index volatility using daily S&P 500 returns from 2010 to 2024.  
+It combines realized volatility measurement, GARCH(1,1) modelling, and a volatility-targeting trading strategy.  
+The objective is to evaluate whether conditional volatility forecasts provide useful information for practical risk management.
 
 ---
 
 ## Overview
 
-Financial markets exhibit volatility clustering: periods of calm and turbulence tend to persist.  
-Modelling this behaviour is central to risk management, derivative pricing, and portfolio construction.
+Volatility in financial markets is persistent and exhibits clustering: periods of low volatility tend to be followed by low volatility, and periods of high volatility tend to be followed by high volatility.  
+Modelling this structure is fundamental in risk management, asset allocation, and derivative pricing.
 
 This project:
 
-- computes realized volatility using rolling windows;
-- estimates a GARCH(1,1) model on daily log-returns;
-- compares conditional volatility forecasts with realized volatility;
-- applies the forecast to a volatility-targeting trading rule;
-- evaluates performance against a passive Buy & Hold benchmark.
-
-The goal is to assess the practical usefulness of conditional volatility estimates.
+- constructs realized volatility using rolling windows,
+- estimates a GARCH(1,1) model on log-returns,
+- compares conditional volatility forecasts with realized volatility,
+- applies these forecasts to a volatility-targeting rule,
+- evaluates performance relative to a Buy & Hold benchmark.
 
 ---
 
 ## Dataset
 
-- Asset: S&P 500 Index (`^GSPC`)
-- Frequency: Daily
-- Period: 2010–2024  
-- Source: Yahoo Finance via `yfinance`
+- **Asset:** S&P 500 Index (`^GSPC`)  
+- **Frequency:** Daily  
+- **Period:** 2010–2024  
+- **Source:** Yahoo Finance (`yfinance`)
 
-Returns are computed as log-returns.  
+Returns are expressed as log-returns.  
 Volatility is annualised assuming 252 trading days.
 
 ---
 
 ## Methodology
 
+This section explains clearly the mathematical objects used in the project.
+
 ### 1. Realized Volatility
 
-Realized volatility is estimated using a 21-day rolling standard deviation of log-returns:
+Realized volatility is the standard deviation of recent returns.  
+We compute it over a 21-day rolling window and annualise it:
 
 \[
-\text{RV}_{t} = \sqrt{252} \cdot \text{std}(r_{t-20}, \dots, r_{t})
+\text{RealizedVol}_t = \sqrt{252}\;\cdot\;\operatorname{std}(r_{t-20}, \dots, r_{t})
 \]
 
-This smooths high-frequency noise while remaining reactive to market shocks.
+Interpretation:
+
+- \( r_t \) are the daily log-returns,
+- we take the standard deviation of the past 21 days,
+- multiplying by \( \sqrt{252} \) expresses volatility on an annual scale.
+
+This provides a smooth empirical estimate of volatility observed in the data.
+
+---
 
 ### 2. GARCH(1,1) Model
 
-The conditional variance is modelled using the standard GARCH(1,1) specification:
+A GARCH model expresses tomorrow’s volatility as a function of:
+
+1. a long-term constant level \( \omega \),
+2. the size of yesterday’s shock \( \alpha \varepsilon_{t-1}^2 \),
+3. yesterday’s variance \( \beta \sigma_{t-1}^2 \).
+
+The conditional variance equation is:
 
 \[
-\sigma_t^2 = \omega + \alpha \varepsilon_{t-1}^2 + \beta \sigma_{t-1}^2
+\sigma_t^2
+= 
+\omega + \alpha \varepsilon_{t-1}^2 + \beta \sigma_{t-1}^2
 \]
 
-Daily innovations follow:
+The returns follow:
 
 \[
-r_t = \mu + \varepsilon_t,\qquad \varepsilon_t = \sigma_t z_t,\quad z_t \sim N(0,1)
+r_t = \mu + \varepsilon_t,\qquad 
+\varepsilon_t = \sigma_t z_t,\qquad
+z_t \sim N(0,1)
 \]
 
-Parameters are estimated via Maximum Likelihood using the `arch` package.
+Meaning:
+
+- \( \sigma_t \) is the model’s estimate of volatility,
+- \( z_t \) is a standard normal shock,
+- \( \varepsilon_t \) is the return innovation.
+
+Parameters \( \omega, \alpha, \beta, \mu \) are estimated via Maximum Likelihood.  
+This model captures volatility clustering and persistence.
+
+---
 
 ### 3. Volatility-Targeting Strategy
 
-The conditional volatility forecast is used to scale portfolio exposure:
+The conditional volatility forecast is used to scale exposure.  
+The target annual volatility is set to 10%.
+
+The portfolio weight each day is:
 
 \[
 w_t = \frac{\sigma_{\text{target}}}{\hat{\sigma}_{t}}
 \]
 
-where the target volatility is set to 10% annualised.  
-Weights are bounded between 0 and 2 to avoid excessive leverage or short exposure.
+where:
+
+- \( \hat{\sigma}_t \) is the GARCH forecast for day \(t\),  
+- weights are clipped between 0 and 2 (no shorting, max 2× leverage).
+
+Interpretation:
+
+- if forecasted volatility is **high**, exposure is **reduced**,  
+- if forecasted volatility is **low**, exposure is **increased**.
 
 Two equity curves are constructed:
 
-- Buy & Hold: fully invested at all times  
-- Volatility-Targeted Portfolio: exposure adjusted based on the GARCH forecast  
+- **Buy & Hold** (weight = 1 at all times),  
+- **Volatility-Targeted Portfolio** (weight varies across time).
+
+This simple rule implements practical risk management based on predicted volatility.
 
 ---
 
 ## Results
 
-### Volatility Comparison  
-Realized volatility vs. GARCH(1,1) conditional volatility.
+### Realized Volatility vs. GARCH Volatility
 
-![Volatility Comparison](plots/volatility_comparison.png)
+![Volatility Comparison](./volatility_comparison.png)
 
-The GARCH model captures persistent volatility regimes but exhibits the typical lag during sudden market shocks.
+The GARCH(1,1) model broadly captures volatility regimes but reacts with delay during abrupt volatility spikes.  
+This behaviour is expected given the model’s structure and lagged dependence.
+
+---
 
 ### Equity Curve: Buy & Hold vs. Volatility Targeting
 
-![Equity Curve](plots/equity_curves.png)
+![Equity Curve](./equity_curves.png)
 
-Volatility targeting results in a smoother equity curve, reduced drawdowns, and competitive risk-adjusted performance relative to passive exposure.
+The volatility-targeting portfolio produces a smoother equity trajectory and lower drawdowns.  
+Risk-adjusted performance improves relative to passive exposure.
 
 ---
 
@@ -103,15 +147,11 @@ The following metrics are computed:
 
 - Annualised Sharpe ratio  
 - Maximum drawdown  
-- MSE and MAE between realized and GARCH volatility  
 - Annualised volatility of returns  
+- MSE and MAE between realized volatility and GARCH volatility  
 
-These measures allow a direct comparison between the predictive performance of the GARCH model and its practical usefulness for portfolio risk management.
+These metrics provide a quantitative comparison between the model’s predictive accuracy and its usefulness in portfolio applications.
 
 ---
 
 ## How to Run
-
-```bash
-pip install -r requirements.txt
-python volatility_forecasting_garch.py
